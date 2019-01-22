@@ -1,5 +1,7 @@
 #
 # ECLSDK
 #
+ansible
 eclsdk
+shade
 
