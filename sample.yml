@@ -3,6 +3,6 @@
   connection: local
   tasks:
     - ping:
-    - sawada:
+    - ecl2_storage:
         cloud: devel
 
