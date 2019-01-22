@@ -1,11 +1,8 @@
 ---
 - hosts: all
   connection: local
-  vars:
-    local_home: "{{ lookup('env', 'OS_PROJECT_DOMAIN_NAME') }}"
   tasks:
     - ping:
     - sawada:
         cloud: devel
-    - debug: msg="{{ local_home }}"
 
