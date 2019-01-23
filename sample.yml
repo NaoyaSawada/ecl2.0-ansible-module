@@ -5,4 +5,10 @@
     - ping:
     - ecl2_storage:
         cloud: devel
+        state: present
+        #state: absent
+        name: 'test-vs01-for-heat'
+        subnet: 'ANSIBLE_SUBNET2'
+        ip_addr_pool_start: '10.0.2.201'
+        ip_addr_pool_end: '10.0.2.230'
 
