@@ -12,3 +12,12 @@
         ip_addr_pool_start: '10.0.2.201'
         ip_addr_pool_end: '10.0.2.230'
 
+    - ecl2_storage_volume:
+        cloud: devel
+        state: present
+        iops_per_gb: 2
+        name: 'test-ansible2'
+        size: 100
+        virtual_storage: 'test-vs01-for-heat'
+        availability_zone: 'zone1-groupb'
+
