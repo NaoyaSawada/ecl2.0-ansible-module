@@ -1,9 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import ecl as eclsdk
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.openstack import (
     openstack_full_argument_spec, openstack_cloud_from_module, openstack_module_kwargs)
+
+try:
+    import ecl as eclsdk
+    HAS_ECLSDK=True
+except:
+    HAS_ECLSDK=False
 
 #
 # ECL接続
@@ -49,8 +54,8 @@ def _get_ecl_connection_from_module(module):
 #
 # 仮想ストレージを名前で検索
 #
-def _find_storage_by_name(ecl2_connection, name):
-    for storage in ecl2_connection.storage.storages(False):
+def _find_storage_by_name(cloud_ecl2, name):
+    for storage in cloud_ecl2.storage.storages(False):
         storage_dict = storage.to_dict()
         if storage_dict['name'] == name:
             return storage_dict
@@ -59,8 +64,8 @@ def _find_storage_by_name(ecl2_connection, name):
 #
 # 仮想ストレージのボリュームを名前で検索
 #
-def _find_storage_volume_by_name(ecl2_connection, name):
-    for volume in ecl2_connection.storage.volumes(False):
+def _find_storage_volume_by_name(cloud_ecl2, name):
+    for volume in cloud_ecl2.storage.volumes(False):
         volume_dict = volume.to_dict()
         if volume_dict['name'] == name:
             return volume_dict
@@ -69,8 +74,8 @@ def _find_storage_volume_by_name(ecl2_connection, name):
 #
 # 仮想ネットワークの検索
 #
-def _find_network_by_name(ecl2_connection, name):
-    for network in ecl2_connection.network.networks():
+def _find_network_by_name(cloud_ecl2, name):
+    for network in cloud_ecl2.network.networks():
         network_dict = network.to_dict()
         if network_dict['name'] == name:
             return network_dict
@@ -79,8 +84,8 @@ def _find_network_by_name(ecl2_connection, name):
 #
 # 仮想サブネットの検索
 #
-def _find_network_subnet_by_name(ecl2_connection, name):
-    for subnet in ecl2_connection.network.subnets():
+def _find_network_subnet_by_name(cloud_ecl2, name):
+    for subnet in cloud_ecl2.network.subnets():
         subnet_dict = subnet.to_dict()
         if subnet_dict['name'] == name:
             return subnet_dict
@@ -89,13 +94,40 @@ def _find_network_subnet_by_name(ecl2_connection, name):
 #
 # 仮想ストレージの作成
 #
-def _create_storage(module, ecl2_connection, name, subnet_name, ip_pool_start, ip_pool_end):
+def _create_storage(module, cloud_ecl2):
+    #
+    # 必要な引数の取得
+    #
+    name = module.params['name']
+    subnet_name = module.params['subnet']
+    ip_addr_pool_start = module.params['ip_addr_pool_start']
+    ip_addr_pool_end = module.params['ip_addr_pool_end']
+    #
+    # 待機時間の取得
+    #
+    wait = module.params['wait']
+    timeout = int(module.params['timeout'])
+
+    #
+    # サブネットの入力チェック
+    #
+    if subnet_name == None:
+        module.fail_json(msg='Please input subnet field.')
+        return False
+
     #
     # サブネットの取得
     #
-    subnet = _find_network_subnet_by_name(ecl2_connection, subnet_name)
+    subnet = _find_network_subnet_by_name(cloud_ecl2, subnet_name)
     if subnet == None:
-        module.fail_json('Network subnet(%s) is not exist.' %(subnet_name))
+        module.fail_json(msg='Network subnet(%s) is not exist.' %(subnet_name))
+        return False
+
+    #
+    # IPの確認
+    #
+    if ip_addr_pool_start == None or ip_addr_pool_end == None:
+        module.fail_json(msg='Please check ip_addr_pool_start & ip_addr_pool_end field.')
         return False
 
     #
@@ -107,40 +139,56 @@ def _create_storage(module, ecl2_connection, name, subnet_name, ip_pool_start, i
         'subnet_id' : subnet['id'],
         'volume_type_id' : '6328d234-7939-4d61-9216-736de66d15f9',
         'ip_addr_pool' : {
-            'start' : ip_pool_start,
-            'end'   : ip_pool_end
+            'start' : ip_addr_pool_start,
+            'end'   : ip_addr_pool_end
         }
     }
 
     #
     # ストレージの作成
     #
-    ecl2_connection.storage.create_storage(**args)
+    new_storage = cloud_ecl2.storage.create_storage(**args)
+    if wait == True:
+        cloud_ecl2.storage.wait_for_status(new_storage, status='available', wait=timeout)
     return True
 
 #
 # 仮想ストレージの削除
 #
-def _delete_storage_by_name(ecl2_connection, name):
+def _delete_storage_by_name(cloud_ecl2, name):
     # ストレージの検索
-    storage = _find_storage_by_name(ecl2_connection, name)
+    storage = _find_storage_by_name(cloud_ecl2, name)
     if not storage == None:
         # ストレージの削除
         storage_id = storage['id']
-        ecl2_connection.storage.delete_storage(storage_id)
+        cloud_ecl2.storage.delete_storage(storage_id)
         return True
     return False
 
 #
 # 仮想ストレージ内にボリュームを作成
 #
-def _create_storage_volume(module, ecl2_connection, name, size, iops_per_gb, virtual_storage_name, availability_zone):
+def _create_storage_volume(module, cloud_ecl2):
+    #
+    # 必要な引数の取得
+    #
+    name = module.params['name']
+    size = module.params['size']
+    iops_per_gb = module.params['iops_per_gb']
+    virtual_storage_name = module.params['virtual_storage']
+    availability_zone = module.params['availability_zone']
+    #
+    # 待機時間の取得
+    #
+    wait = module.params['wait']
+    timeout = int(module.params['timeout'])
+
     #
     # ストレージの検索
     #
-    storage = _find_storage_by_name(ecl2_connection, virtual_storage_name)
+    storage = _find_storage_by_name(cloud_ecl2, virtual_storage_name)
     if storage == None:
-        module.fail_json('Virtual storage(%s) is not exist.' %(virtual_storage_name))
+        module.fail_json(msg='Virtual storage(%s) is not exist.' %(virtual_storage_name))
         return False
 
     #
@@ -157,8 +205,29 @@ def _create_storage_volume(module, ecl2_connection, name, size, iops_per_gb, vir
     #
     # ボリュームの作成
     #
-    ecl2_connection.storage.create_volume(**args)
+    new_volume = cloud_ecl2.storage.create_volume(**args)
+    if wait == True:
+        cloud_ecl2.storage.wait_for_status(new_volume, status='available', wait=timeout)
     return True
+
+#
+# 仮想ストレージ内のボリュームを削除
+#
+def _delete_storage_volume_by_name(module, cloud_ecl2):
+    #
+    # 必要な引数の取得
+    #
+    name = module.params['name']
+
+    #
+    # ボリュームの検索
+    #
+    volume = _find_storage_volume_by_name(cloud_ecl2, name)
+    if not volume == None:
+        # ボリュームの削除
+        volume_id = volume['id']
+        cloud_ecl2.storage.delete_volume(volume_id)
+    return False
 
 #
 # ストレージサービス: ブロックストレージの作成
@@ -169,10 +238,10 @@ def main():
     #
     argument_spec = openstack_full_argument_spec(
         name=dict(required=True),
-        size=dict(requires=True, type='int', choices=[100, 250, 500, 1000, 2000, 4000, 8000, 12000]),
-        iops_per_gb=dict(requires=True, choices=['2', '4']),
-        virtual_storage=dict(required=True),
-        availability_zone=dict(required=True),
+        size=dict(default=100, type='int', choices=[100, 250, 500, 1000, 2000, 4000, 8000, 12000]),
+        iops_per_gb=dict(default='2', choices=['2', '4']),
+        virtual_storage=dict(required=False),
+        availability_zone=dict(required=False),
         state=dict(default='present', choices=['absent', 'present'])
     )
     module_kwargs = openstack_module_kwargs()
@@ -190,15 +259,13 @@ def main():
     # Ansible引数の取得
     #
     name = module.params['name']
-    size = module.params['size']
-    iops_per_gb = module.params['iops_per_gb']
-    virtual_storage_name = module.params['virtual_storage']
-    availability_zone = module.params['availability_zone']
     state = module.params['state']
 
-    # 待機時間の取得
-    #wait = module.params['wait']
-    #timeout = module.params['timeout']
+    #
+    # ECLSDKがインストールされているかの確認
+    #
+    if HAS_ECLSDK == False:
+        module.fail_json(msg='ECLSDK is not exist.')
 
     #
     # ECLへの接続
@@ -219,30 +286,30 @@ def main():
         #
         # 仮想ストレージボリュームの作成
         #
-        _create_storage_volume(module, ecl2, name, size, iops_per_gb, virtual_storage_name, availability_zone)
+        _create_storage_volume(module, ecl2)
 
         #
         # 正常終了
         #
         module.exit_json(changed=True)
         return True
-    #else:
+    else:
         #
         # 既に仮想ストレージが存在しない場合
         #
-        #if volume == None:
-        #    module.exit_json(msg = 'Virtual storage volume(%s) is not exist.' %(name), changed=False)
+        if volume == None:
+            module.exit_json(msg = 'Virtual storage volume(%s) is not exist.' %(name), changed=False)
 
         #
         # 仮想ストレージボリュームの削除
         #
-        #_delete_storage_by_name(ecl2, name)
+        _delete_storage_volume_by_name(module, ecl2)
 
         #
         # 正常終了
         #
-        #module.exit_json(changed=True)
-        #return True
+        module.exit_json(changed=True)
+        return True
 
 #
 # Entry Point
