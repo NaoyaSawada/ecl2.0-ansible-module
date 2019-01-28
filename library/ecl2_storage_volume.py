@@ -9,16 +9,27 @@ try:
 except:
     HAS_ECLSDK=False
 
-from ansible.module_utils.openstack import openstack_cloud_from_module
-
 #
 # ECL接続
 #
 def _get_ecl_connection_from_module(module):
-    #
-    # Cloud インスタンスの取得
-    #
-    sdk, cloud = openstack_cloud_from_module(module)
+    try:
+        #
+        # モジュールから接続情報を取得するためのユーティリティを読み込み
+        #
+        from ansible.module_utils.openstack import openstack_cloud_from_module
+
+        #
+        # Cloud インスタンスの取得
+        #
+        sdk, cloud = openstack_cloud_from_module(module)
+    except:
+        #
+        # Clouds.yaml の 情報読み込み
+        #
+        import openstack
+        cloud_config = module.params['cloud']
+        cloud = openstack.connect(cloud=cloud_config)
 
     #
     # 設定情報の取り出し
