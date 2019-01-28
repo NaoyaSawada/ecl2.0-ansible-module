@@ -1,7 +1,7 @@
 #
 # ECLSDK
 #
-ansible
-eclsdk
-shade
+ansible==2.1.2.0
+eclsdk==0.0.9
+shade==1.30.0
 
