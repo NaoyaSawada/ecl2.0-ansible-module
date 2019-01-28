@@ -1,0 +1,15 @@
+---
+- hosts: all
+  connection: local
+  tasks:
+    - ecl2_storage_volume:
+        cloud: devel
+        state: absent
+        name: 'test-ansible2'
+
+    - ecl2_storage:
+        cloud: devel
+        state: absent
+        name: 'test-vs01-for-heat'
+        subnet: 'ANSIBLE_SUBNET2'
+
