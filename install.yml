@@ -25,3 +25,7 @@
           - 'iqn.1994-05.com.redhat:5f9b99b9c43'
         timeout: 600
 
+    - ecl2_storage_volume_stat:
+        cloud: devel
+        name: 'test-ansible2'
+
