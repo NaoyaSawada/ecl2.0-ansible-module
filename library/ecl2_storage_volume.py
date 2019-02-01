@@ -187,6 +187,7 @@ def _create_storage_volume(module, cloud_ecl2):
     name = module.params['name']
     size = module.params['size']
     iops_per_gb = module.params['iops_per_gb']
+    initiator_iqns = module.params['initiator_iqns']
     virtual_storage_name = module.params['virtual_storage']
     availability_zone = module.params['availability_zone']
     #
@@ -210,6 +211,7 @@ def _create_storage_volume(module, cloud_ecl2):
         'name'                  : name,
         'size'                  : int(size),        # サイズは整数値型でないとパラメータ不正が起こる
         'iops_per_gb'           : str(iops_per_gb), # iopsは文字列型でないとパラメータ不正が起こる
+        'initiator_iqns'        : initiator_iqns,
         'virtual_storage_id'    : storage['id'],
         'availability_zone'     : availability_zone
     }
@@ -252,6 +254,7 @@ def main():
         name=dict(required=True),
         size=dict(default=100, type='int', choices=[100, 250, 500, 1000, 2000, 4000, 8000, 12000]),
         iops_per_gb=dict(default='2', choices=['2', '4']),
+        initiator_iqns=dict(default=[], type='list'),
         virtual_storage=dict(required=False),
         availability_zone=dict(required=False),
         state=dict(default='present', choices=['absent', 'present'])

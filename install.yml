@@ -20,5 +20,7 @@
         size: 100
         virtual_storage: 'test-vs01-for-heat'
         availability_zone: 'zone1-groupb'
+        initiator_iqns:
+          - ''
         timeout: 600
 
