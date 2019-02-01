@@ -22,5 +22,6 @@
         availability_zone: 'zone1-groupb'
         initiator_iqns:
           - 'iqn.1994-05.com.redhat:e887d78945e'
+          - 'iqn.1994-05.com.redhat:5f9b99b9c43'
         timeout: 600
 
